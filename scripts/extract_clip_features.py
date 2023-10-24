@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 
 # Set filepaths
-shapenet_images_path = './data/shapenet-images/screenshots'
+shapenet_images_path = './data/screenshots'
 ann_files = ["train.json", "val.json", "test.json"]
 folds = './amt/folds_adversarial'
 

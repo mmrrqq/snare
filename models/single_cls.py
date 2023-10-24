@@ -14,13 +14,14 @@ import models.aggregator as agg
 
 class SingleClassifier(LightningModule):
 
-    def __init__(self, cfg, train_ds, val_ds):
+    def __init__(self, cfg, train_ds, val_ds, freeze_mapping_layer=True):
         self.optimizer = None
         super().__init__()
 
         self.cfg = cfg
         self.train_ds = train_ds
         self.val_ds = val_ds
+        self.freeze_mapping_layer = freeze_mapping_layer
         self.dropout = self.cfg['train']['dropout']
 
         # input dimensions
@@ -62,14 +63,16 @@ class SingleClassifier(LightningModule):
 
     def build_model(self):
         # image encoder
-        self.img_fc = nn.Sequential(
-            nn.Identity()
-        )
+        self.img_fc = nn.Linear(self.img_feat_dim, self.img_feat_dim)
+        self.img_fc.weight.data.copy_(torch.eye(self.img_feat_dim))
+        if self.freeze_mapping_layer:
+            self.img_fc.requires_grad_(False)
 
         # language encoder
-        self.lang_fc = nn.Sequential(
-            nn.Identity()
-        )
+        self.lang_fc = nn.Linear(self.lang_feat_dim, self.lang_feat_dim)
+        self.lang_fc.weight.data.copy_(torch.eye(self.lang_feat_dim))
+        if self.freeze_mapping_layer:
+            self.lang_fc.requires_grad_(False)
 
         # finetuning layers for classification
         self.cls_fc = nn.Sequential(
@@ -203,11 +206,14 @@ class SingleClassifier(LightningModule):
         mean_val_loss = np.mean([m['val_loss'].detach().cpu().float() for m in all_view_results.values()])
         mean_val_acc = np.mean([m['val_acc'] for m in all_view_results.values()])
 
-        return dict(
+        result = dict(
             val_loss=mean_val_loss,
             val_acc=mean_val_acc,
             all_view_results=all_view_results,
         )
+        self.val_all_outputs.append(result)
+
+        return result
 
     def compute_metrics(self, labels, loss, probs, visual, num_steps):
         batch_size = probs.shape[0]
@@ -258,8 +264,18 @@ class SingleClassifier(LightningModule):
             val_pl_nonvis_correct=pl_nonvis_correct,
             val_nonvis_total=nonvis_total,
         )
+    
+    def on_validation_epoch_start(self) -> None:        
+        super().on_validation_epoch_start()
 
-    def validation_epoch_end(self, all_outputs, mode='vl'):
+        self.val_all_outputs = []
+
+        return
+    
+    def on_validation_epoch_end(self) -> None:
+        mode = "vl" # TODO: clarify?!
+        super().on_validation_epoch_end()
+    
         n_view_res = {}
         sanity_check = True
         for view in range(self.num_views):
@@ -280,7 +296,7 @@ class SingleClassifier(LightningModule):
                 'val_nonvis_total': 0,
             }
 
-            for output in all_outputs:
+            for output in self.val_all_outputs:                
                 metrics = output['all_view_results'][view]
 
                 view_res['val_loss'] += metrics['val_loss'].item()
@@ -299,7 +315,7 @@ class SingleClassifier(LightningModule):
                 view_res['val_pl_nonvis_correct'] += int(metrics['val_pl_nonvis_correct'])
                 view_res['val_nonvis_total'] += metrics['val_nonvis_total']
 
-            view_res['val_loss'] = float(view_res['val_loss']) / len(all_outputs)
+            view_res['val_loss'] = float(view_res['val_loss']) / len(self.val_all_outputs)
 
             view_res['val_acc'] = float(view_res['val_correct']) / view_res['val_total']
             view_res['val_pl_acc'] = float(view_res['val_pl_correct']) / view_res['val_total']
@@ -368,9 +384,12 @@ class SingleClassifier(LightningModule):
             print(f'Best {mode} Acc: {best_acc:0.5f} ({best_pl_acc:0.5f}) | Visual {best_acc_visual:0.5f} ({best_pl_acc_visual:0.5f}) | Nonvis: {best_acc_nonvis:0.5f} ({best_pl_acc_nonvis:0.5f}) | Val Loss: {best_loss:0.8f} ')
             print("------------")
 
+        self.val_all_outputs.clear()
+
         if self.log_data:
             wandb.log(res)
-        return dict(
+
+        results = dict(
             val_loss=mean_val_loss,
             val_acc=val_acc,
             val_visual_acc=val_visual_acc,
@@ -379,6 +398,10 @@ class SingleClassifier(LightningModule):
             val_pl_visual_acc=val_pl_visual_acc,
             val_pl_nonvis_acc=val_pl_nonvis_acc,
         )
+
+        self.log_dict(results)
+
+        return results
 
     def test_step(self, batch, batch_idx):
         all_view_results = {}
@@ -399,14 +422,24 @@ class SingleClassifier(LightningModule):
                 num_steps=num_steps,
             )
 
-        return dict(
+        results = dict(
             all_view_results=all_view_results,
         )
+        self.test_all_outputs.append(results)
 
-    def test_epoch_end(self, all_outputs, mode='test'):
+        return results
+    
+    def on_test_epoch_start(self) -> None:
+        super().on_test_epoch_start()
+
+        self.test_all_outputs = []        
+    
+    def on_test_epoch_end(self) -> None:        
+        super().on_test_epoch_end()    
+
         test_results = {v: list() for v in range(self.num_views)}
 
-        for out in all_outputs:
+        for out in self.test_all_outputs:
             for view in range(self.num_views):
                 view_res = out['all_view_results']
                 bs = view_res[view]['pred_ans'].shape[0]
@@ -429,4 +462,6 @@ class SingleClassifier(LightningModule):
         json_file = os.path.join(test_pred_save_path, f'{model_type}_test_results.json')
         with open(json_file, 'w') as f:
             json.dump(test_results, f, sort_keys=True, indent=4)
+
+        self.test_all_outputs.clear()
 

@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 
 
 @hydra.main(config_path="cfgs", config_name="train")
-def main(cfg):
+def main(cfg):    
     # set random seeds
     seed = cfg['train']['random_seed']
     torch.manual_seed(seed)
@@ -35,10 +35,10 @@ def main(cfg):
         save_last=True,
     )
     trainer = Trainer(
-        gpus=[0],
+        devices=[0],
         fast_dev_run=cfg['debug'],
-        checkpoint_callback=checkpoint_callback,
-        max_epochs=cfg['train']['max_epochs'],
+        callbacks=[checkpoint_callback],
+        max_epochs=cfg['train']['max_epochs']        
     )
 
     # dataset
@@ -47,7 +47,7 @@ def main(cfg):
     test = CLIPGraspingDataset(cfg, mode='test')
 
     # model
-    model = models.names[cfg['train']['model']](cfg, train, valid)
+    model = models.names[cfg['train']['model']](cfg, train, valid, freeze_mapping_layer=False)
 
     # resume epoch and global_steps
     if last_checkpoint and cfg['train']['load_from_last_ckpt']:
@@ -56,15 +56,15 @@ def main(cfg):
         trainer.current_epoch = last_ckpt['epoch']
         trainer.global_step = last_ckpt['global_step']
         del last_ckpt
-
+    
     trainer.fit(
         model,
-        train_dataloader=DataLoader(train, batch_size=cfg['train']['batch_size']),
-        val_dataloaders=DataLoader(valid, batch_size=cfg['train']['batch_size']),
+        train_dataloaders=DataLoader(train, batch_size=cfg['train']['batch_size'], num_workers=16),
+        val_dataloaders=DataLoader(valid, batch_size=cfg['train']['batch_size'], num_workers=16),
     )
 
     trainer.test(
-        test_dataloaders=DataLoader(test, batch_size=cfg['train']['batch_size']),
+        dataloaders=DataLoader(test, batch_size=cfg['train']['batch_size'], num_workers=16),
         ckpt_path='best'
     )
 
