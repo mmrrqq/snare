@@ -177,7 +177,7 @@ class SingleClassifier(LightningModule):
                 'tr/loss': losses['loss'],
             })
 
-        self.log_dict(out)
+        # self.log_dict(out)
 
         return dict(
             loss=losses['loss']
