@@ -64,12 +64,12 @@ def main(cfg):
     
     trainer.fit(
         model,
-        train_dataloaders=DataLoader(train, batch_size=cfg['train']['batch_size'], num_workers=16),
-        val_dataloaders=DataLoader(valid, batch_size=cfg['train']['batch_size'], num_workers=16),
+        train_dataloaders=DataLoader(train, batch_size=cfg['train']['batch_size'], num_workers=2),
+        val_dataloaders=DataLoader(valid, batch_size=cfg['train']['batch_size'], num_workers=2),
     )
 
     trainer.test(
-        dataloaders=DataLoader(test, batch_size=cfg['train']['batch_size'], num_workers=16),
+        dataloaders=DataLoader(test, batch_size=cfg['train']['batch_size'], num_workers=2),
         ckpt_path='best'
     )
 
