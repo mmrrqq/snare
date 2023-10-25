@@ -233,7 +233,7 @@ class Rotator(SingleClassifier):
 
         # worst views with lowest classifier probs
         worst_views1 = all_probs[:, :, 0].argmin(-1)
-        worst_views2 = all_probs[:, :, 0].argmin(-1)
+        worst_views2 = all_probs[:, :, 1].argmin(-1)
 
         # Initialize with worst views
         if init_view_force == 'adv':
