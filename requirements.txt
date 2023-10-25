@@ -1,12 +1,10 @@
 numpy
 ftfy
 regex
-tqdm
 hydra-core
 wandb
-torch
-torchvision
-pytorch-lightning
+lightning
+tensorboard
 clip @ git+https://github.com/openai/CLIP.git
 tqdm
 Pillow

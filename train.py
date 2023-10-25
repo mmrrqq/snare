@@ -2,8 +2,9 @@ import os
 from pathlib import Path
 
 import hydra
-from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
+from lightning.pytorch import Trainer
+from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.callbacks import ModelCheckpoint
 import numpy as np
 import random
 
@@ -13,13 +14,14 @@ from data.dataset import CLIPGraspingDataset
 from torch.utils.data import DataLoader
 
 
-@hydra.main(config_path="cfgs", config_name="train")
+@hydra.main(config_path="cfgs", config_name="train", version_base="1.1")
 def main(cfg):    
     # set random seeds
     seed = cfg['train']['random_seed']
     torch.manual_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
+    torch.set_float32_matmul_precision('high')
 
     hydra_dir = Path(os.getcwd())
     checkpoint_path = hydra_dir / 'checkpoints'
@@ -34,17 +36,20 @@ def main(cfg):
         save_top_k=1,
         save_last=True,
     )
+    logger = TensorBoardLogger(hydra_dir)
     trainer = Trainer(
         devices=[0],
         fast_dev_run=cfg['debug'],
         callbacks=[checkpoint_callback],
-        max_epochs=cfg['train']['max_epochs']        
+        max_epochs=cfg['train']['max_epochs'],
+        logger=logger,
+        log_every_n_steps=1
     )
 
     # dataset
     train = CLIPGraspingDataset(cfg, mode='train')
-    valid = CLIPGraspingDataset(cfg, mode='valid')
-    test = CLIPGraspingDataset(cfg, mode='test')
+    valid = CLIPGraspingDataset(cfg, mode='valid', lang_feats=train.lang_feats, img_feats=train.img_feats)
+    test = CLIPGraspingDataset(cfg, mode='test', lang_feats=train.lang_feats, img_feats=train.img_feats)
 
     # model
     model = models.names[cfg['train']['model']](cfg, train, valid, freeze_mapping_layer=False)
@@ -53,7 +58,7 @@ def main(cfg):
     if last_checkpoint and cfg['train']['load_from_last_ckpt']:
         print(f"Resuming: {last_checkpoint}")
         last_ckpt = torch.load(last_checkpoint)
-        trainer.current_epoch = last_ckpt['epoch']
+        trainer.fit_loop.epoch_progress.current.completed = last_ckpt['epoch']
         trainer.global_step = last_ckpt['global_step']
         del last_ckpt
     

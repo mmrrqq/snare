@@ -43,6 +43,18 @@ class TwoRandomIndex(nn.Module):
         x2 = x[torch.arange(0, x.shape[0], dtype=torch.long), batch_idxs_2]  # [B 512]
         x, _ = torch.stack([x1, x2], dim=-1).max(dim=-1)                     # [B 512]
         return x
+    
+
+# TODO: or better directly in the true rotator model class?
+class CaptionViewPredictor(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+        self.cfg = cfg
+        # TODO: construct predictor network
+
+    def forward(caption, initial_view):
+        # TODO use network to predict best view, given the (tokenized?) caption.
+        pass
 
 
 names = {

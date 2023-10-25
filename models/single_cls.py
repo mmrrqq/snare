@@ -6,7 +6,7 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pytorch_lightning import LightningModule
+from lightning.pytorch import LightningModule
 import wandb
 
 import models.aggregator as agg
@@ -176,6 +176,8 @@ class SingleClassifier(LightningModule):
             wandb.log({
                 'tr/loss': losses['loss'],
             })
+
+        self.log_dict(out)
 
         return dict(
             loss=losses['loss']

@@ -1,11 +1,13 @@
-hydra:
+hydra:  
+  job:
+    chdir: True
   run:
     dir: ${root_dir}/${train.exps_folder}/${train.folder}
   sweep:
     dir: ${root_dir}/${train.exps_folder}/
     subdir: ${train.folder}
 
-root_dir: /home/markus/dev/snare
+root_dir: /home/mrothgaenger/dev/snare
 
 tag: default
 seed: 0
@@ -35,12 +37,12 @@ train:
   folder: ${train.feats_backbone}-${train.model}-${train.run_name}
   run_name: ${train.aggregator.type}
   pretrained_model: ''
-  model: 'single_cls'
+  model: 'true_rotator'
   random_seed: 42
   log: False
   lr: 1e-3
-  batch_size: 64
-  max_epochs: 50
+  batch_size: 512
+  max_epochs: 15
   load_from_last_ckpt: False
   dropout: 0.1
   normalize_feats: True
@@ -60,6 +62,7 @@ train:
 
   loss:
     est_weight: 1.0
+    caption_view_est_weight: 1.0
     rot_weight: 1.0
     cls_weight: 0.2
 

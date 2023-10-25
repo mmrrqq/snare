@@ -9,7 +9,7 @@ import json
 
 class CLIPGraspingDataset(torch.utils.data.Dataset):
 
-    def __init__(self, cfg, mode='train'):
+    def __init__(self, cfg, mode='train', lang_feats=None, img_feats=None):
         self.total_views = 14
         self.cfg = cfg
         self.mode = mode
@@ -17,6 +17,11 @@ class CLIPGraspingDataset(torch.utils.data.Dataset):
         self.feats_backbone = self.cfg['train']['feats_backbone']
 
         self.load_entries()
+        if lang_feats is not None and img_feats is not None:
+            self.lang_feats = lang_feats
+            self.img_feats = img_feats
+            return
+        
         self.load_extracted_features()
 
     def load_entries(self):
