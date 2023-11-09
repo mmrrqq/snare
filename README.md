@@ -22,10 +22,9 @@ SNARE dataset and code for MATCH and LaGOR models.
 ```bash
 $ git clone https://github.com/snaredataset/snare.git
 
-$ virtualenv -p $(which python3) --system-site-packages snare_env # or whichever package manager you prefer
-$ source snare_env/bin/activate
+$ conda create -n snare python=3.10
+$ conda activate snare
 
-$ pip install --upgrade pip
 $ pip install -r requirements.txt
 ```  
 Edit `root_dir` in [cfgs/train.yaml](cfgs/train.yaml) to reflect your working directory.
