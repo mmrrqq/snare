@@ -14,7 +14,6 @@ class CLIPGraspingDataset(torch.utils.data.Dataset):
         self.cfg = cfg
         self.mode = mode
         self.folds = os.path.join(self.cfg['data']['amt_data'], self.cfg['data']['folds'])
-        self.feats_backbone = self.cfg['train']['feats_backbone']
 
         self.load_entries()
         if lang_feats is not None and img_feats is not None:
@@ -50,16 +49,13 @@ class CLIPGraspingDataset(torch.utils.data.Dataset):
         print(f"Loaded Entries. {self.mode}: {len(self.data)} entries")
 
     def load_extracted_features(self):
-        if self.feats_backbone == "clip":
-            lang_feats_path = self.cfg['data']['clip_lang_feats']
-            with gzip.open(lang_feats_path, 'r') as f:
-                self.lang_feats = json.load(f)
+        lang_feats_path = self.cfg['data']['clip_lang_feats']
+        with gzip.open(lang_feats_path, 'r') as f:
+            self.lang_feats = json.load(f)
 
-            img_feats_path = self.cfg['data']['clip_img_feats']
-            with gzip.open(img_feats_path, 'r') as f:
-                self.img_feats = json.load(f)
-        else:
-            raise NotImplementedError()
+        img_feats_path = self.cfg['data']['clip_img_feats']
+        with gzip.open(img_feats_path, 'r') as f:
+            self.img_feats = json.load(f)
 
     def __len__(self):
         return len(self.data)

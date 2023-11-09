@@ -34,24 +34,24 @@ data:
 
 train:
   exps_folder: 'exps'
-  folder: ${train.feats_backbone}-${train.model}-${train.run_name}
+  folder: ${train.model}-${train.run_name}
   run_name: ${train.aggregator.type}
   pretrained_model: ''
-  model: 'true_rotator'
+  model: 'rotator'
   random_seed: 42
   log: False
   lr: 1e-3
-  batch_size: 512
-  max_epochs: 15
+  batch_size: 256
+  max_epochs: 100
   load_from_last_ckpt: False
   dropout: 0.1
   normalize_feats: True
-  pretrained_checkpoint: ""
+  # pretrained_checkpoint: ""
   fc_projection_type: "fc"
-  feats_backbone: "clip"
+  freeze_mapping_layer: False
 
   aggregator:
-    type: 'maxpool'
+    type: 'two_random_index'
     index: 0 # zeroth-view for 'index' aggregation type
 
   rotator:
@@ -61,10 +61,10 @@ train:
     estimate_final_state: True
 
   loss:
-    est_weight: 1.0
-    caption_view_est_weight: 1.0
-    rot_weight: 1.0
-    cls_weight: 0.2
+    est_weight: 1
+    caption_view_est_weight: 1
+    # rot_weight: 1.0
+    cls_weight: 1
 
 val:
   adversarial_init_view: False

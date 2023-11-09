@@ -1,4 +1,5 @@
 data/screenshots
 *.gz
 exps/
+clips/
 __pycache__/

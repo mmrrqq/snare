@@ -13,6 +13,9 @@ import models.aggregator as agg
 
 
 class SingleClassifier(LightningModule):
+    img_fc: nn.Module
+    lang_fc: nn.Module
+    cls_fc: nn.Module
 
     def __init__(self, cfg, train_ds, val_ds, freeze_mapping_layer=True):
         self.optimizer = None
@@ -25,7 +28,6 @@ class SingleClassifier(LightningModule):
         self.dropout = self.cfg['train']['dropout']
 
         # input dimensions
-        self.feats_backbone = self.cfg['train']['feats_backbone']
         self.img_feat_dim = 512
         self.lang_feat_dim = 512
         self.num_views = 8
@@ -62,15 +64,26 @@ class SingleClassifier(LightningModule):
             wandb.run.name = self._cfg['wandb']['logger']['run_name']
 
     def build_model(self):
-        # image encoder
-        self.img_fc = nn.Linear(self.img_feat_dim, self.img_feat_dim)
-        self.img_fc.weight.data.copy_(torch.eye(self.img_feat_dim))
+        def init_linear_mapping(m):
+            if isinstance(m, nn.Linear):                                
+                m.weight.data.copy_(torch.eye(self.img_feat_dim))
+                m.bias.data.copy_(torch.zeros((self.img_feat_dim)))
+
+        # image mapping
+        self.img_fc = nn.Sequential(
+            nn.Linear(self.img_feat_dim, self.img_feat_dim),
+            nn.Dropout(self.dropout)
+        )
+        self.img_fc.apply(init_linear_mapping)
         if self.freeze_mapping_layer:
             self.img_fc.requires_grad_(False)
-
-        # language encoder
-        self.lang_fc = nn.Linear(self.lang_feat_dim, self.lang_feat_dim)
-        self.lang_fc.weight.data.copy_(torch.eye(self.lang_feat_dim))
+        
+        # language mapping
+        self.lang_fc = nn.Sequential(
+            nn.Linear(self.lang_feat_dim, self.lang_feat_dim),
+            nn.Dropout(self.dropout)
+        )
+        self.lang_fc.apply(init_linear_mapping)
         if self.freeze_mapping_layer:
             self.lang_fc.requires_grad_(False)
 
@@ -85,8 +98,16 @@ class SingleClassifier(LightningModule):
             nn.Linear(256, 1),
         )
 
+        # load pre-trained model
+        if self.cfg['train']['pretrained_model']:
+            model_path = self.cfg['train']['pretrained_model']
+            self.load_state_dict(torch.load(model_path)['state_dict'])
+            print(f"Loaded: {model_path}")
+
     def configure_optimizers(self):
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.cfg['train']['lr'])
+        self.optimizer = torch.optim.AdamW(self.parameters(), lr=self.cfg['train']['lr'])
+        for name, param in self.named_parameters():
+            print(name)
         return self.optimizer
 
     def smoothed_cross_entropy(self, pred, target, alpha=0.1):
@@ -103,14 +124,15 @@ class SingleClassifier(LightningModule):
         probs = out['probs']
         labels = out['labels']
 
+        # this must use raw_probs!
         loss = self.smoothed_cross_entropy(probs, labels)
 
         return {
             'loss': loss
         }
 
-    def forward(self, batch):
-        (img1_n_feats, img2_n_feats), lang_feats, ans, (key1, key2), annotation, is_visual = batch
+    def forward(self, batch, batch_idx):
+        (img1_n_feats, img2_n_feats), lang_feats, ans, _, _, is_visual = batch
 
         # to device
         img1_n_feats = img1_n_feats.to(device=self.device).float()
@@ -121,21 +143,19 @@ class SingleClassifier(LightningModule):
         img1_feats = self.aggregator(img1_n_feats)
         img2_feats = self.aggregator(img2_n_feats)
 
-        # lang encoding
-        lang_enc = self.lang_fc(lang_feats)
-
         # normalize
         if self.cfg['train']['normalize_feats']:
             img1_feats = img1_feats / img1_feats.norm(dim=-1, keepdim=True)
             img2_feats = img2_feats / img2_feats.norm(dim=-1, keepdim=True)
-            lang_enc = lang_enc / lang_enc.norm(dim=-1, keepdim=True)
+            lang_feats = lang_feats / lang_feats.norm(dim=-1, keepdim=True)
 
-        # img1 prob
+        # lang encoding
+        lang_enc = self.lang_fc(lang_feats)
         img1_enc = self.img_fc(img1_feats)
-        img1_prob = self.cls_fc(torch.cat([img1_enc, lang_enc], dim=-1))
-
-        # img2 prob
         img2_enc = self.img_fc(img2_feats)
+
+        # model probabilities
+        img1_prob = self.cls_fc(torch.cat([img1_enc, lang_enc], dim=-1))
         img2_prob = self.cls_fc(torch.cat([img2_enc, lang_enc], dim=-1))
 
         # cat probs
@@ -152,7 +172,7 @@ class SingleClassifier(LightningModule):
         test_mode = (ans[0] == -1)
         if not test_mode:
             # one-hot labels of answers
-            labels = F.one_hot(ans)
+            labels = F.one_hot(ans, num_classes=2)
 
             return {
                 'probs': probs,
@@ -167,7 +187,7 @@ class SingleClassifier(LightningModule):
             }
 
     def training_step(self, batch, batch_idx):
-        out = self.forward(batch)
+        out = self.forward(batch, batch_idx)
 
         # classifier loss
         losses = self._criterion(out)
@@ -192,7 +212,7 @@ class SingleClassifier(LightningModule):
     def validation_step(self, batch, batch_idx):
         all_view_results = {}
         for view in range(self.num_views):
-            out = self.forward(batch)
+            out = self.forward(batch, batch_idx)
             losses = self._criterion(out)
 
             loss = losses['loss']
@@ -408,7 +428,7 @@ class SingleClassifier(LightningModule):
     def test_step(self, batch, batch_idx):
         all_view_results = {}
         for view in range(self.num_views):
-            out = self.forward(batch)
+            out = self.forward(batch, batch_idx)
             probs = out['probs']
             num_steps = out['num_steps']
             objects = batch[3]

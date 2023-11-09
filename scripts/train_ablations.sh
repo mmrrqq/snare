@@ -9,10 +9,10 @@ do
   echo $EXP_FOLDER
 
   ## MATCH
-  CUDA_VISIBLE_DEVICES=$(($JOB_NUM % $NUM_GPUS)) python train.py train.model=single_cls train.random_seed=$RANDOM_SEED train.exps_folder=$EXP_FOLDER train.feats_backbone=clip train.max_epochs=50 train.aggregator.type=two_random_index train.load_from_last_ckpt=False &
+  CUDA_VISIBLE_DEVICES=$(($JOB_NUM % $NUM_GPUS)) python train.py train.model=single_cls train.random_seed=$RANDOM_SEED train.exps_folder=$EXP_FOLDER train.max_epochs=50 train.aggregator.type=two_random_index train.load_from_last_ckpt=False &
   JOB_NUM=$((JOB_NUM + 1))
-  CUDA_VISIBLE_DEVICES=$(($JOB_NUM % $NUM_GPUS)) python train.py train.model=rotator train.random_seed=$RANDOM_SEED train.exps_folder=$EXP_FOLDER train.feats_backbone=clip train.max_epochs=50 train.aggregator.type=two_random_index train.load_from_last_ckpt=False &
+  CUDA_VISIBLE_DEVICES=$(($JOB_NUM % $NUM_GPUS)) python train.py train.model=rotator train.random_seed=$RANDOM_SEED train.exps_folder=$EXP_FOLDER train.max_epochs=50 train.aggregator.type=two_random_index train.load_from_last_ckpt=False &
   JOB_NUM=$((JOB_NUM + 1))
-  CUDA_VISIBLE_DEVICES=$(($JOB_NUM % $NUM_GPUS)) python train.py train.model=true_rotator train.random_seed=$RANDOM_SEED train.exps_folder=$EXP_FOLDER train.feats_backbone=clip train.max_epochs=50 train.aggregator.type=two_random_index train.load_from_last_ckpt=False &
+  CUDA_VISIBLE_DEVICES=$(($JOB_NUM % $NUM_GPUS)) python train.py train.model=true_rotator train.random_seed=$RANDOM_SEED train.exps_folder=$EXP_FOLDER train.max_epochs=50 train.aggregator.type=two_random_index train.load_from_last_ckpt=False &
   JOB_NUM=$((JOB_NUM + 1))
 done

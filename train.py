@@ -32,8 +32,10 @@ def main(cfg):
     checkpoint_callback = ModelCheckpoint(
         monitor=cfg['wandb']['saver']['monitor'],
         dirpath=checkpoint_path,
-        filename='{epoch:04d}-{val_acc:.5f}',
-        save_top_k=1,
+        filename='{epoch:02d}-{val_acc:.5f}',
+        auto_insert_metric_name=True,
+        save_top_k=2,
+        mode="max",
         save_last=True,
     )
     logger = TensorBoardLogger(hydra_dir)
@@ -43,7 +45,8 @@ def main(cfg):
         callbacks=[checkpoint_callback],
         max_epochs=cfg['train']['max_epochs'],
         logger=logger,
-        log_every_n_steps=1
+        log_every_n_steps=10,
+        # limit_train_batches=0.5
     )
 
     # dataset
@@ -52,7 +55,7 @@ def main(cfg):
     test = CLIPGraspingDataset(cfg, mode='test', lang_feats=train.lang_feats, img_feats=train.img_feats)
 
     # model
-    model = models.names[cfg['train']['model']](cfg, train, valid, freeze_mapping_layer=False)
+    model = models.names[cfg['train']['model']](cfg, train, valid, freeze_mapping_layer=cfg['train']['freeze_mapping_layer'])
 
     # resume epoch and global_steps
     if last_checkpoint and cfg['train']['load_from_last_ckpt']:

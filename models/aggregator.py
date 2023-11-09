@@ -28,7 +28,7 @@ class RandomIndex(nn.Module):
 
     def forward(self, x):
         batch_idxs = torch.randint(x.shape[1], (x.shape[0],))               # [B]
-        return x[torch.arange(0, x.shape[0], dtype=torch.long), batch_idxs] # [B 512]
+        return x[:, batch_idxs] # [B 512]
 
 
 class TwoRandomIndex(nn.Module):
